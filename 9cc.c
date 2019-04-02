@@ -1,5 +1,63 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+enum
+{
+    TK_NUM = 256,
+    TK_EOF,
+};
+
+typedef struct
+{
+    int type;
+    int val;
+    char *input;
+} Token;
+
+Token tokens[100];
+
+void tokenize(char *p)
+{
+    int i = 0;
+    while (*p)
+    {
+        if (isspace(*p))
+        {
+            p++;
+            continue;
+        }
+
+        if (*p == '+' || *p == '-')
+        {
+            tokens[i].type = *p;
+            tokens[i].input = p;
+            i++;
+            p++;
+            continue;
+        }
+
+        if (isdigit(*p))
+        {
+            tokens[i].type = TK_NUM;
+            tokens[i].input = p;
+            tokens[i].val = strtol(p, &p, 10);
+            i++;
+            continue;
+        }
+        fprintf(stderr, "トークナイズできません: %s\n", p);
+        exit(1);
+    }
+    tokens[i].type = TK_EOF;
+    tokens[i].input = p;
+}
+
+void error(int i)
+{
+    fprintf(stderr, "予期しないトークンです: %s\n", tokens[i].input);
+    exit(1);
+}
 
 int main(int argc, char **argv)
 {
@@ -9,31 +67,40 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    char *p = argv[1];
+    tokenize(argv[1]);
 
     printf(".intel_syntax noprefix\n");
     printf(".global main\n");
     printf("main:\n");
-    printf("    mov rax, %ld\n", strtol(p, &p, 10));
 
-    while (*p)
+    if (tokens[0].type != TK_NUM)
+        error(0);
+
+    printf("    mov rax, %d\n", tokens[0].val);
+
+    int i = 1;
+    while (tokens[i].type != TK_EOF)
     {
-        if (*p == '+')
+        if (tokens[i].type == '+')
         {
-            p++;
-            printf("    add rax, %ld\n", strtol(p, &p, 10));
+            i++;
+            if (tokens[i].type != TK_NUM)
+                error(i);
+            printf("    add rax, %d\n", tokens[i].val);
+            i++;
             continue;
         }
 
-        if (*p == '-')
+        if (tokens[i].type == '-')
         {
-            p++;
-            printf("    sub rax, %ld\n", strtol(p, &p, 10));
+            i++;
+            if (tokens[i].type != TK_NUM)
+                error(i);
+            printf("    add rax, %d\n", tokens[i].val);
+            i++;
             continue;
         }
-
-        fprintf(stderr, "予期しない文字です: '%c'\n", *p);
-        return 1;
+        error(i);
     }
 
     printf("    ret\n");
